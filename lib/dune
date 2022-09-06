@@ -1,0 +1,4 @@
+(library
+  (name ox)
+  (libraries base)
+  (preprocess (pps ppx_expect -check)))
