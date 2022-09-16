@@ -16,7 +16,7 @@ let rec print_expr : Ast_expr.t -> unit = function
   | Int n ->
     printf "%d" n
   | Var name ->
-    printf "%s" name
+    printf "%s" (Ast_symbol.to_string name)
   | Op1 (o, a) ->
     printf "(%s " (Ast_op1.to_string o);
     print_expr a;
@@ -36,7 +36,7 @@ and print_stmt : Ast_stmt.t -> unit = function
   | Expr e ->
     print_expr e
   | Let1 (s, e) ->
-    printf "(let %s = " s;
+    printf "(let %s = " (Ast_symbol.to_string s);
     print_expr e;
     printf ")";
 

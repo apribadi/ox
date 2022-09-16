@@ -26,6 +26,9 @@ let token t =
 let token_string t =
   String.sub t.source t.token_start (t.token_stop - t.token_start)
 
+let token_symbol t =
+  Ast_symbol.make t.source ~pos:t.token_start ~len:(t.token_stop - t.token_start)
+
 let advance t =
   Lexer.next t
 
@@ -36,21 +39,7 @@ let consume t a =
   expect t a;
   advance t
 
-let rec parse_stmt t =
-  match token t with
-  | Let ->
-    advance t;
-    expect t Symbol;
-    let s = token_string t in
-    advance t;
-    consume t Assignment;
-    let e = parse_expr t in
-    Ast_stmt.Let1 (s, e)
-  | _ ->
-    let e = parse_expr t in
-    Ast_stmt.Expr e
-
-and parse_block = 
+let rec parse_block = 
   let finish a b =
     { Ast_block.
       seq = Array.of_list_rev a
@@ -76,7 +65,7 @@ and parse_block =
     | Let ->
       advance t;
       expect t Symbol;
-      let s = token_string t in
+      let s = token_symbol t in
       advance t;
       consume t Assignment;
       let e = parse_expr t in
@@ -181,9 +170,11 @@ and parse_expr_call =
     | Comma ->
       advance t;
       g t e a
-    | _ ->
-      consume t R_paren;
+    | R_paren ->
+      advance t;
       f t (Ast_expr.Call (e, Array.of_list_rev a))
+    | _ ->
+      raise Parse_error
   in
   fun t ->
     let e = parse_expr_primary t in
@@ -193,12 +184,11 @@ and parse_expr_primary t =
   match token t with
   | Number ->
     let s = token_string t in
-    (* Handle failure parsing integer literal. *)
-    let n = int_of_string s in
+    let n = try int_of_string s with _ -> raise Parse_error in
     advance t;
     Ast_expr.Int n
   | Symbol ->
-    let s = token_string t in
+    let s = token_symbol t in
     advance t;
     Ast_expr.Var s
   | L_paren | L_paren_no_space ->
@@ -223,9 +213,26 @@ and parse_expr_primary t =
       let b = parse_block t in
       consume t End;
       Ast_expr.If (p, a, b)
-    | _ ->
+    | Elif ->
       (* TODO: elif *)
+      raise Parse_error
+    | _ ->
       raise Parse_error
     end
   | _ -> 
+    raise Parse_error
+
+let parse_decl t =
+  match token t with
+  | Fun ->
+    advance t;
+    expect t Symbol;
+    let name = token_symbol t in
+    advance t;
+    consume t L_paren_no_space;
+    consume t R_paren;
+    let body = parse_block t in
+    consume t End;
+    Ast_decl.Fun { name; parameters = [||]; body }
+  | _ ->
     raise Parse_error
